@@ -109,6 +109,13 @@ struct image_t {
         atlas_data_t* p_atlas = nullptr;
     } atlas;
 
+    // Larger copies of a high-resolution mod sprite (2x, 4x, 8x); atlas above holds the 1x copy.
+    struct {
+        uint8_t scale = 1;
+        vec2i offset[3];
+        atlas_data_t *p_atlas[3] = {nullptr, nullptr, nullptr};
+    } hires;
+
     struct {
         uint8_t animate = 0;
         uint8_t max_frame = 0;
@@ -126,6 +133,15 @@ struct image_t {
     } temp;
 
     inline vec2i size() const { return {width, height}; }
+
+    struct source {
+        atlas_data_t *p_atlas;
+        vec2i offset;
+        vec2i size;
+        int factor;
+    };
+    source source_for(float screen_scale) const;
+
     int isometric_size() const;
     int calc_isometric_top_height() const;
     int isometric_3d_height() const;

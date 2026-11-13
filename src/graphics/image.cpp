@@ -3,6 +3,7 @@
 #include "image_groups.h"
 #include "content/imagepak.h"
 #include "graphics/image_desc.h"
+#include "graphics/image_hires.h"
 #include "graphics/imagepak_holder.h"
 #include "graphics/residency_atlas.h"
 #include "content/dir.h"
@@ -573,6 +574,15 @@ const image_t* image_get_enemy(int type, int id) {
     }
     auto *handle = data.pak_list[type].handle;
     return handle ? handle->get_image(id) : nullptr;
+}
+
+image_t::source image_t::source_for(float screen_scale) const {
+    const int factor = image_hires::pick_factor(screen_scale, hires.scale);
+    const int level = image_hires::level_index(factor);
+    if (level < 0 || !hires.p_atlas[level]) {
+        return {atlas.p_atlas, atlas.offset, size(), 1};
+    }
+    return {hires.p_atlas[level], hires.offset[level], size() * factor, factor};
 }
 
 int image_t::isometric_size() const {

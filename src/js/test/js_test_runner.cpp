@@ -372,6 +372,15 @@ static void __test_camera_center_building(int bid) {
 }
 ANK_FUNCTION_1(__test_camera_center_building);
 
+// Unlike __test_camera_center_building, keeps the current zoom.
+static void __test_camera_go_to_tile(int x, int y) {
+    const tile2i c(x, y);
+    if (c.valid()) {
+        g_camera.go_to_mappoint(c);
+    }
+}
+ANK_FUNCTION_2(__test_camera_go_to_tile);
+
 static void __camera_scroll(int dx, int dy) {
     // Unclamped nudge for screenshot framing.
     g_camera.camera_position.x += dx;

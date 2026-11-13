@@ -15,6 +15,7 @@
 #include "graphics/text.h"
 #include "graphics/screen.h"
 #include "graphics/image.h"
+#include "graphics/image_hires.h"
 #include "graphics/residency_atlas.h"
 #include "content/zipreader.hpp"
 
@@ -23,6 +24,7 @@
 #include "js/js_game.h"
 #include "js/js.h"
 
+#include <algorithm>
 #include <array>
 #include <unordered_set>
 #include <cinttypes>
@@ -478,6 +480,8 @@ bool imagepak::load_zip_pak(vfs::path pak, int starting_index) {
     archive arch = config::load(configname);
 
     global_image_index_offset = starting_index;
+    svector<int, PAK_GROUPS_MAX> group_scales;
+    int hires_extra_rects = 0;
     g_config_arch.r_array(pak.c_str(), [&](archive arch) {
         int start_index = arch.r_int("start_index");
         int finish_index = arch.r_int("finish_index");
@@ -485,11 +489,36 @@ bool imagepak::load_zip_pak(vfs::path pak, int starting_index) {
             finish_index = start_index;
         }
         verify_no_crash(finish_index >= start_index);
+        int scale = arch.r_int("scale");
+        if (scale <= 0) {
+            scale = 1;
+        }
+        if (!image_hires::valid_scale(scale)) {
+            logs::warn("%s: group '%s' has scale %d, expected 1, 2, 4 or 8; loading at scale 1", datafile.c_str(),
+                       arch.r_string("name").c_str(), scale);
+            scale = 1;
+        }
+        const int count = (finish_index - start_index) + 1;
+        for (int f = scale; f > 1; f /= 2) {
+            hires_extra_rects += count;
+        }
+        group_scales.push_back(scale);
         group_image_ids[groups_num] = entries_num;
         bmp_names[groups_num] = arch.r_string("name").c_str();
-        entries_num += (finish_index - start_index) + 1;
+        entries_num += count;
         ++groups_num;
     });
+
+    struct hires_level {
+        int image;
+        int factor;
+        int rect;
+        int width;
+        int height;
+        std::vector<color> pixels;
+    };
+    std::vector<hires_level> hires_levels;
+    int next_extra_rect = entries_num;
 
     verify_no_crash(global_image_index_offset >= 25000);
     images_array.reserve(entries_num);
@@ -501,7 +530,54 @@ bool imagepak::load_zip_pak(vfs::path pak, int starting_index) {
 
     std::sort(offset_ids_vec.begin(), offset_ids_vec.end(), [] (auto &lhs, auto &rhs) { return lhs.start < rhs.start; });
 
-    auto load_img = [&] (pcstr fn, int i, int group_id, int atlas_rect_id) {
+    auto build_hires_levels = [&] (image_t &img, SDL_Surface *surface, int scale, int image_index, int atlas_rect_id) {
+        SDL_Surface *argb = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_ARGB8888, 0);
+        if (!argb) {
+            logs::warn("%s: cannot convert hires image %d of '%s', loading at scale 1", datafile.c_str(), image_index, name.c_str());
+            return false;
+        }
+        const int logical_w = (argb->w + scale - 1) / scale;
+        const int logical_h = (argb->h + scale - 1) / scale;
+        int w = logical_w * scale;
+        int h = logical_h * scale;
+        if (w != argb->w || h != argb->h) {
+            logs::warn("%s: hires image %d of '%s' is %dx%d, not a multiple of scale %d; padding to %dx%d", datafile.c_str(),
+                       image_index, name.c_str(), argb->w, argb->h, scale, w, h);
+        }
+
+        // Pad on top, not below: buildings are drawn bottom-aligned to their tile.
+        const int pad_top = h - argb->h;
+        std::vector<color> pixels((size_t)w * h, 0);
+        for (int y = 0; y < argb->h; ++y) {
+            const auto *row = (const color *)((const uint8_t *)argb->pixels + (size_t)y * argb->pitch);
+            std::copy(row, row + argb->w, pixels.begin() + (size_t)(y + pad_top) * w);
+        }
+        SDL_FreeSurface(argb);
+        image_hires::premultiply(pixels);
+
+        for (int factor = scale;; factor /= 2) {
+            const int rect = (factor == 1) ? atlas_rect_id : next_extra_rect++;
+            // 1px transparent border: these levels are sampled with linear filtering.
+            packer.rects[rect].input.width = w + 2;
+            packer.rects[rect].input.height = h + 2;
+            if (factor == 1) {
+                hires_levels.push_back({image_index, factor, rect, w, h, std::move(pixels)});
+                break;
+            }
+            std::vector<color> half = image_hires::halve(pixels, w, h);
+            hires_levels.push_back({image_index, factor, rect, w, h, std::move(pixels)});
+            pixels = std::move(half);
+            w /= 2;
+            h /= 2;
+        }
+
+        img.width = logical_w;
+        img.height = logical_h;
+        img.hires.scale = (uint8_t)scale;
+        return true;
+    };
+
+    auto load_img = [&] (pcstr fn, int i, int group_id, int atlas_rect_id, int scale) {
         image_t img;
         img.pak_id = pack;
         img.pak_name = name;
@@ -524,6 +600,11 @@ bool imagepak::load_zip_pak(vfs::path pak, int starting_index) {
         img.width = surface ? surface->w : 0;
         img.height = surface ? surface->h : 0;
         img.temp.surface = (void*)surface;
+
+        if (scale > 1 && surface && build_hires_levels(img, surface, scale, (int)images_array.size(), atlas_rect_id)) {
+            SDL_FreeSurface(surface);
+            img.temp.surface = nullptr;
+        }
 
         img.unk03 = -1;
         img.animation.num_sprites = -1;
@@ -586,16 +667,18 @@ bool imagepak::load_zip_pak(vfs::path pak, int starting_index) {
         img.unk18 = -1;
         img.unk20 = -1;
 
-        image_packer_rect* rect = &packer.rects[atlas_rect_id];
-        rect->input.width = img.width;
-        rect->input.height = img.height;
+        if (img.hires.scale == 1) {
+            image_packer_rect *rect = &packer.rects[atlas_rect_id];
+            rect->input.width = img.width;
+            rect->input.height = img.height;
+        }
 
         images_array.push_back(img);
     };
 
     // prepare atlas packer & renderer
     vec2i max_texture_sizes = g_render.get_max_image_size();
-    int init_result = packer.init(entries_num, max_texture_sizes);
+    int init_result = packer.init(entries_num + hires_extra_rects, max_texture_sizes);
     if (init_result != IMAGE_PACKER_OK) {
         return false;
     }
@@ -617,7 +700,7 @@ bool imagepak::load_zip_pak(vfs::path pak, int starting_index) {
             }
             name.printf("%s%05u.png", prefix.c_str(), i);
             name = name.tolower();
-            load_img(bstring256(datafile, "/", name), i - start_index, tmp_group_id, atlas_rect_id);
+            load_img(bstring256(datafile, "/", name), i - start_index, tmp_group_id, atlas_rect_id, group_scales[tmp_group_id]);
             ++atlas_rect_id;
         }
         ++tmp_group_id;
@@ -654,9 +737,30 @@ bool imagepak::load_zip_pak(vfs::path pak, int starting_index) {
         img.atlas.p_atlas = p_data;
         img.atlas.offset = rect.output.pos;
 
-        // load and convert image bitmap data
-        image_copy_to_atlas(img);
+        if (img.hires.scale == 1) {
+            image_copy_to_atlas(img);
+        }
     }
+
+    for (const hires_level &level : hires_levels) {
+        const image_packer_rect &rect = packer.rects[level.rect];
+        atlas_data_t *page = &atlas_pages.at(rect.output.image_index);
+        const vec2i pos = rect.output.pos + vec2i{1, 1};
+        for (int y = 0; y < level.height; ++y) {
+            const color *src = level.pixels.data() + (size_t)y * level.width;
+            std::copy(src, src + level.width, page->temp.pixel_buffer + (size_t)(pos.y + y) * page->width + pos.x);
+        }
+
+        image_t &img = images_array.at(level.image);
+        if (level.factor == 1) {
+            img.atlas.offset = pos;
+        } else {
+            const int index = image_hires::level_index(level.factor);
+            img.hires.offset[index] = pos;
+            img.hires.p_atlas[index] = page;
+        }
+    }
+    hires_levels.clear();
 
     // create textures from atlas data
     for (int i = 0; i < atlas_pages.size(); ++i) {
