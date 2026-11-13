@@ -7,6 +7,7 @@
 #include "graphics/residency_atlas.h"
 #include "platform/renderer.h"
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 #include <unordered_map>
@@ -52,10 +53,10 @@ void painter::draw_image(const image_t *img, vec2i pos, color color, float scale
         return;
     }
 
-    vec2i offset = img->atlas.offset;
-    vec2i size = { img->width, img->height };
-    if (offset.x >= 0 && offset.y >= 0) {
-        draw(img->atlas.p_atlas->texture, pos, offset, size, color, scale, scale, 0, flags);
+    const image_t::source src = img->source_for(scale * global_render_scale);
+    if (src.offset.x >= 0 && src.offset.y >= 0) {
+        const float s = scale / src.factor;
+        draw(src.p_atlas->texture, pos, src.offset, src.size, color, s, s, 0, flags);
     }
 }
 
@@ -512,9 +513,9 @@ void painter::draw(const sprite &spr, vec2i pos, color color_mask, float scale_x
         return;
     }
 
-    vec2i offset = spr.img->atlas.offset;
-    vec2i size = spr.img->size();
-    draw(spr.img->atlas.p_atlas->texture, pos, offset, size, color_mask, scale_x, scale_y, angle, flags, force_linear);
+    const image_t::source src = spr.img->source_for(std::max(scale_x, scale_y) * global_render_scale);
+    draw(src.p_atlas->texture, pos, src.offset, src.size, color_mask, scale_x / src.factor, scale_y / src.factor, angle, flags,
+         force_linear);
 }
 
 sprite_resource_icon::sprite_resource_icon(e_resource res) {
