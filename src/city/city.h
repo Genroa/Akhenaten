@@ -16,6 +16,7 @@
 #include "city/city_animals.h"
 #include "city/military.h"
 #include "city/city_resource.h"
+#include "city/city_food_supply.h"
 #include "city/city_monuments.h"
 #include "city/city_fishing_points.h"
 #include "city/map.h"
@@ -53,6 +54,7 @@ struct city_t {
 
     city_finance_t finance;
     city_resources_t resource;
+    city_food_supply_t food_supply;
     city_taxes_t taxes;
 
     city_labor_t labor;
@@ -98,6 +100,13 @@ struct city_t {
         bool trees_reachable = false;
         bool reeds_reachable = false;
     } vegetation;
+
+    // OG city_locusts_countdown (-1 = waiting for the flood), city_frogs_countdown, mummies_max.
+    struct {
+        int32_t locusts_countdown;
+        int32_t frogs_countdown;
+        int32_t mummies_max;
+    } plagues;
 
     struct {
         bool fired_message_shown;

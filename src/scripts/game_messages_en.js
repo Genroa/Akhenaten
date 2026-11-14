@@ -1563,6 +1563,49 @@ game_messages_en {
         content { text: "" }
     }
 
+    // OG MESSAGE_CITY_SAVED (MM 262) / MESSAGE_DISTANT_BATTLE_WON (MM 263): texts from the event phrases.
+    message_template_city_saved {
+        id: 262
+        type: 2
+        message_type: 2
+        size [30, 20]
+        video { text: "@1" }
+        title { text: "" }
+        content { text: "" }
+    }
+
+    message_template_distant_battle_won {
+        id: 263
+        type: 2
+        message_type: 2
+        size [30, 20]
+        video { text: "@2" }
+        title { text: "" }
+        content { text: "" }
+    }
+
+    // OG MESSAGE_CITY_FELL_TO_ENEMY (MM 338): an Egyptian city taken by the enemy; texts from the event phrases.
+    message_template_city_fell_to_enemy {
+        id: 338
+        type: 2
+        message_type: 2
+        size [30, 20]
+        video { text: "@8" }
+        title { text: "" }
+        content { text: "" }
+    }
+
+    // OG MESSAGE_CITY_CONQUERED (MM 339): a foreign city conquered by Egypt; texts from the event phrases.
+    message_template_foreign_city_conquered {
+        id: 339
+        type: 2
+        message_type: 2
+        size [30, 20]
+        video { text: "@9" }
+        title { text: "" }
+        content { text: "" }
+    }
+
     // OG MESSAGE_EARTHQUAKE: title and text come from the event phrases, param2 is the first tile.
     message_earthquake {
         id: 261

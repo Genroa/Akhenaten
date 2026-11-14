@@ -173,6 +173,9 @@ public:
     uint8_t collecting_item_id; // NOT a resource ID for cartpushers! IS a resource ID for warehousemen
     xstring phrase_key;
     xstring phrase_sound;
+    uint8_t phrase_sequence;
+    int8_t phrase_id;
+    uint8_t phrase_group; // e_advisor of the phrase subject (OG phrase group)
     figure_id target_figure_id;
     short targeted_by_figure_id;
     uint8_t num_attackers;
@@ -261,8 +264,7 @@ public:
     bool is_fighting_friendly();
     bool is_fighting_enemy();
     e_minimap_figure_color get_figure_color();
-    const figure_static_params &params() const;
-    const animation_t &anim(const xstring &key);
+    const figure_static_params& params() const;
 
     void kill();
 
@@ -351,6 +353,7 @@ public:
     void draw_map_flag(vec2i pixel, int highlight, vec2i* coord_out = nullptr);
 
     void advance_figure_tick();
+    void advance_height();
     void set_target_height_bridge();
     void set_target_height_building();
     e_permission get_permission_for_figure();
@@ -410,6 +413,7 @@ public:
     int figure_image_normalize_direction(int dir);
 
     // sound.c
+    void play_attack_sound();
     void play_die_sound();
     void play_hit_sound();
 

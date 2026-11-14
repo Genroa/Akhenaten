@@ -73,6 +73,7 @@ static config::EnumIterator ANK_CONFIG_CC1(config_handler, __LINE__)(register_ev
 void register_event_subtype_aliases(config::type_enum) {
     js_register_token(EVENT_SUBTYPE_CITY_FELL_TO_ENEMY, "EVENT_SUBTYPE_CITY_FELL_TO_ENEMY");
     js_register_token(EVENT_SUBTYPE_GENERIC_REQUEST, "EVENT_SUBTYPE_GENERIC_REQUEST");
+    js_register_token(EVENT_SUBTYPE_FOREIGN_CITY_CONQUERED, "EVENT_SUBTYPE_FOREIGN_CITY_CONQUERED");
     js_register_token(EVENT_SUBTYPE_CITY_ASKS_FOR_TROOPS, "EVENT_SUBTYPE_CITY_ASKS_FOR_TROOPS");
     js_register_token(EVENT_SUBTYPE_DISTANT_BATTLE, "EVENT_SUBTYPE_DISTANT_BATTLE");
     js_register_token(EVENT_SUBTYPE_NEW_TRADE_ROUTE, "EVENT_SUBTYPE_NEW_TRADE_ROUTE");
@@ -334,6 +335,7 @@ int event_manager_t::create_invasion(const invasion_event_desc &desc) {
     event.amount = {(int16_t)desc.amount, (int16_t)desc.amount, -1, -1};
     event.months_initial = desc.months_initial;
     event.location_fields = {(int16_t)desc.route, (int16_t)desc.route, -1, -1};
+    event.route_fields = {(int16_t)desc.empire_route, (int16_t)desc.empire_route, -1, -1};
     event.invasion_attack_target = desc.attack_target;
     event.parent_id = -1;
     event.on_completed_action = -1;
@@ -571,7 +573,7 @@ static void update_randomized_values(event_ph_t &event) {
     randomize_event_fields((int16_t*)&event.amount, &seed);
     randomize_event_fields((int16_t*)&event.time, &seed);
     randomize_event_fields(event.location_fields.data(), &seed);
-    randomize_event_fields(event.route_fields, &seed);
+    randomize_event_fields(event.route_fields.data(), &seed);
 
     // some other unknown stuff also happens here.........
     random_generate_next();
@@ -1352,8 +1354,8 @@ void event_manager_t::process_event(int id, bool via_event_trigger, int chain_ac
         break;
 
     case EVENT_TYPE_MUMMY: {
-            int n = event.amount.value > 0 ? event.amount.value : 1;
-            figure_mummy::spawn_wave(n);
+        figure_mummy::start_plague(event.amount.value);
+        messages::popup("message_mummy_attacks", 0, 0);
         }
         break;
 
@@ -1389,24 +1391,30 @@ void event_manager_t::process_event(int id, bool via_event_trigger, int chain_ac
             switch (event.subtype) {
             case EVENT_SUBTYPE_CITY_FELL_TO_ENEMY:
                 // Pak CITY_STATUS subtype=0 — Egyptian city falls (Buhen troops refuse/defeat
-                // chains i=34 Dahshur / i=36 Enkomi). Close trade like a lost route and mark
-                // the city foreign-occupied (same type flip as distant_battle::set_city_foreign).
-                city->is_open = false;
-                if (full_empire_object *full = g_empire.ref_full_object(city->empire_object_id)) {
-                    full->trade_route_open = 0;
+                // chains i=34 Dahshur / i=36 Enkomi). OG keeps the route open: only the type changes.
+                if (!city->change_type(empire_city_fall_to_enemy)) {
+                    break;
                 }
-                city->set_foreign();
-                city_message_post_full(true, "message_template_general", &event, caller_event_id,
-                    PHRASE_eg_city_falls_title, PHRASE_eg_city_falls_initial_announcement,
-                    PHRASE_eg_city_falls_reason_A, id, city->name_id);
+                if (full_empire_object* full = g_empire.ref_full_object(city->empire_object_id)) {
+                    full->city_type = city->type;
+                }
+                city_message_post_full(true, "message_template_city_fell_to_enemy", &event, caller_event_id,
+                  PHRASE_eg_city_falls_title, PHRASE_eg_city_falls_initial_announcement,
+                  PHRASE_eg_city_falls_no_reason_A, id, city->name_id);
                 break;
 
             case EVENT_SUBTYPE_FOREIGN_CITY_CONQUERED:
-                // Same subtype value as CITY_ASKS_FOR_TROOPS (requests) / MESSAGE conquered.
                 // Pak uses CITY_STATUS subtype=1 as "foreign city conquered" (e.g. Abu y6 Selima).
+                // OG: a city that is not foreign is left alone and nothing is posted.
+                if (!city->change_type(empire_city_conquest)) {
+                    break;
+                }
+                if (full_empire_object* full = g_empire.ref_full_object(city->empire_object_id)) {
+                    full->city_type = city->type;
+                }
                 city_message_post_full(true, "message_template_foreign_city_conquered", &event, caller_event_id,
-                    PHRASE_foreign_city_conquered_title, PHRASE_foreign_city_conquered_initial_announcement,
-                    PHRASE_foreign_city_conquered_reason_A, id, city->name_id);
+                  PHRASE_foreign_city_conquered_title, PHRASE_foreign_city_conquered_initial_announcement,
+                  PHRASE_foreign_city_conquered_no_reason_A, id, city->name_id);
                 break;
 
             case EVENT_SUBTYPE_NEW_TRADE_ROUTE:
@@ -1418,8 +1426,8 @@ void event_manager_t::process_event(int id, bool via_event_trigger, int chain_ac
                     full->city_type = city->type;
                 }
                 city_message_post_full(true, "message_template_general", &event, caller_event_id,
-                    PHRASE_route_opened_title, PHRASE_route_opened_initial_announcement, PHRASE_route_opened_reason_A,
-                    id, city->name_id);
+                  PHRASE_route_opened_title, PHRASE_route_opened_initial_announcement, PHRASE_route_opened_no_reason_A,
+                  id, city->name_id);
                 break;
 
             case EVENT_SUBTYPE_LOST_TRADE_ROUTE:
@@ -1429,8 +1437,8 @@ void event_manager_t::process_event(int id, bool via_event_trigger, int chain_ac
                     full->trade_route_open = 0;
                 }
                 city_message_post_full(true, "message_template_general", &event, caller_event_id,
-                    PHRASE_route_closed_title, PHRASE_route_closed_initial_announcement, PHRASE_route_closed_reason_A,
-                    id, city->name_id);
+                  PHRASE_route_closed_title, PHRASE_route_closed_initial_announcement, PHRASE_route_closed_no_reason_A,
+                  id, city->name_id);
                 break;
 
             case EVENT_SUBTYPE_CITY_UNDER_SIEGE:
@@ -1446,7 +1454,7 @@ void event_manager_t::process_event(int id, bool via_event_trigger, int chain_ac
         break;
 
     case EVENT_TYPE_MESSAGE: {
-        // Prefer event.reasons[] (pak / JS); fall back to the subtype's default phrase.
+        // Prefer event.reasons[] (pak / JS); else OG subtype no_reason_A (phrase 149 + 4 * subtype).
         auto message_phrase = [&](uint16_t fallback) -> int {
             const uint16_t r = event.rand_reason();
             return (r != 0xffff) ? (int)r : (int)fallback;
@@ -1458,20 +1466,19 @@ void event_manager_t::process_event(int id, bool via_event_trigger, int chain_ac
 
         case EVENT_SUBTYPE_MSG_CITY_SAVED:
             city_message_post_full(true, "message_template_city_saved", &event, caller_event_id,
-                                   PHRASE_eg_city_saved_title, PHRASE_eg_city_saved_initial_announcement,
-                                   message_phrase(PHRASE_eg_city_saved_reason_A), id, 0);
+              PHRASE_eg_city_saved_title, PHRASE_eg_city_saved_initial_announcement,
+              message_phrase(PHRASE_eg_city_saved_no_reason_A), id, 0);
             break;
 
-        case EVENT_SUBTYPE_FOREIGN_CITY_CONQUERED:
-            city_message_post_full(true, "message_template_foreign_city_conquered", &event, caller_event_id,
-                                   PHRASE_foreign_city_conquered_title, PHRASE_foreign_city_conquered_initial_announcement,
-                                   message_phrase(PHRASE_foreign_city_conquered_reason_A), id, 0);
+        case EVENT_SUBTYPE_MSG_BATTLE_WON:
+            city_message_post_full(true, "message_template_distant_battle_won", &event, caller_event_id,
+              PHRASE_battle_won_title, PHRASE_battle_won_initial_announcement,
+              message_phrase(PHRASE_battle_won_no_reason_A), id, 0);
             break;
 
         case EVENT_SUBTYPE_MSG_DISTANT_BATTLE_LOST:
-            city_message_post_full(true, "message_template_distant_battle_lost", &event, caller_event_id,
-                                   PHRASE_battle_lost_title, PHRASE_battle_lost_initial_announcement,
-                                   message_phrase(PHRASE_battle_lost_reason_A), id, 0);
+            city_message_post_full(true, "message_template_general", &event, caller_event_id, PHRASE_battle_lost_title,
+              PHRASE_battle_lost_initial_announcement, message_phrase(PHRASE_battle_lost_no_reason_A), id, 0);
             break;
 
         case EVENT_SUBTYPE_MSG_ACKNOWLEDGEMENT:
@@ -1487,24 +1494,22 @@ void event_manager_t::process_event(int id, bool via_event_trigger, int chain_ac
         }
         break;
     }
-    case EVENT_TYPE_LOCUSTS: {
-        const int n = event.amount.value > 0 ? event.amount.value : 0;
-        figure_locust::apply_plague(n);
+    case EVENT_TYPE_LOCUSTS:
+        figure_locust::start_plague();
         messages::popup("message_plague_of_locusts", 0, 0);
         break;
-    }
+
     case EVENT_TYPE_CRIME_WAVE: {
         // TR4a: popup 491 + spawn 2 tomb robbers (TEMP).
         const int n = event.amount.value > 0 ? event.amount.value : 2;
         figure_tomb_robber::spawn_wave(n);
         break;
     }
-    case EVENT_TYPE_FROGS: {
-        const int n = event.amount.value > 0 ? event.amount.value : 0;
-        figure_frog::apply_plague(n);
+    case EVENT_TYPE_FROGS:
+        figure_frog::start_plague(event.amount.value);
         messages::popup("message_plague_of_frogs", 0, 0);
         break;
-    }
+
     case EVENT_TYPE_HAILSTORM:
         messages::popup("message_hailstorm", 0, 0);
         city_hailstorm_start();
@@ -1629,20 +1634,6 @@ bool invasion_fired(const event_ph_t &e) {
     return e.event_state == e_event_state_already_fired;
 }
 
-// OG event_helpers.c scenario_event_is_running: chain templates and favour masters never run on the calendar.
-bool invasion_is_running(const event_ph_t &e) {
-    switch (e.event_trigger_type) {
-    case EVENT_TRIGGER_ONLY_VIA_EVENT:
-    case EVENT_TRIGGER_BY_FAVOUR:
-    case EVENT_TRIGGER_BY_FAVOUR_IN_USE:
-        return false;
-    default:
-        break;
-    }
-    const int months = months_since_event_date(e);
-    return months >= 0 && months <= e.months_initial;
-}
-
 bool invasion_parent_by_favour(const event_ph_t &e) {
     const event_ph_t *parent = g_scenario.events.at(e.parent_id);
     if (!parent || parent == &e) {
@@ -1701,6 +1692,25 @@ void invasion_set_entry(invasion_opts_t &opts, int route, bool bedouin) {
 
 } // namespace
 
+// OG event_helpers.c scenario_event_is_running: chain templates and favour masters never run on the calendar.
+bool scenario_invasion_is_running(const event_ph_t& e) {
+    switch (e.event_trigger_type) {
+    case EVENT_TRIGGER_ONLY_VIA_EVENT:
+    case EVENT_TRIGGER_BY_FAVOUR:
+    case EVENT_TRIGGER_BY_FAVOUR_IN_USE:
+        return false;
+    default:
+        break;
+    }
+    const int months = months_since_event_date(e);
+    return months >= 0 && months <= e.months_initial;
+}
+
+// OG event_helpers.c scenario_event_months_left.
+int scenario_invasion_months_left(const event_ph_t& e) {
+    return e.months_initial - months_since_event_date(e);
+}
+
 // OG scenario_events.c invasion_attack.
 static void invasion_attack(event_ph_t &e) {
     const invasion_phrase_set &phrases = invasion_phrases(e.item.value);
@@ -1736,7 +1746,7 @@ static void invasion_attack(event_ph_t &e) {
 
 // OG scenario_events.c scenario_event_process_invasion.
 void event_manager_t::process_invasion(event_ph_t &e) {
-    if (invasion_fired(e) || !invasion_is_running(e)) {
+    if (invasion_fired(e) || !scenario_invasion_is_running(e)) {
         return;
     }
 
@@ -1748,7 +1758,7 @@ void event_manager_t::process_invasion(event_ph_t &e) {
         return;
     }
 
-    const int months_left = e.months_initial - months_since_event_date(e);
+    const int months_left = scenario_invasion_months_left(e);
     if (months_left == 0) {
         invasion_attack(e);
         return;
@@ -1771,6 +1781,26 @@ void event_manager_t::process_invasion(event_ph_t &e) {
     city_message_post_full(popup, invasion_warning_rules()[w].message[invader - EVENT_INVADER_ENEMY], &e, e.parent_id,
                            phrases.title, phrases.warning[w], text, e.event_id, 0);
     logs::info("[invasion-event] warning event=%d months_left=%d slot=%d", e.event_id, months_left, w);
+}
+
+bool event_manager_t::any_invasion_running() const {
+    for (const event_ph_t& e : g_scenario_events.event_list) {
+        if (e.type == EVENT_TYPE_INVASION && scenario_invasion_is_running(e)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// OG figure_phrase_city_weights: the first invasion triggered by favour, once fired.
+bool event_manager_t::favour_invasion_fired() const {
+    for (const event_ph_t& e : g_scenario_events.event_list) {
+        const int flags = e.event_trigger_type;
+        if (e.type == EVENT_TYPE_INVASION && (flags & EVENT_TRIGGER_BY_FAVOUR)) {
+            return (flags & EVENT_TRIGGER_ALREADY_FIRED) != 0;
+        }
+    }
+    return false;
 }
 
 void event_manager_t::process_invasions() {

@@ -7,6 +7,7 @@
 #include "figure/figure_type.h"
 #include "core/tokenum.h"
 #include "core/archive.h"
+#include "core/svector.h"
 
 struct empire_city_options_t {
     uint16_t text_group_old_names;
@@ -33,6 +34,21 @@ ANK_CONFIG_STRUCT(empire_city_images_t,
     egyptian_trading, egyptian, foreign_trading, foreign)
 
 extern empire_city_images_t empire_city_images;
+
+struct empire_city_type_change {
+    e_empire_city from;
+    e_empire_city to;
+};
+ANK_CONFIG_STRUCT(empire_city_type_change, from, to)
+
+// OG city_status_new_type rows of one city-status subtype; a city whose type has no row is left alone.
+struct empire_city_type_changes_t {
+    svector<empire_city_type_change, 4> types;
+};
+ANK_CONFIG_STRUCT(empire_city_type_changes_t, types)
+
+extern empire_city_type_changes_t empire_city_conquest;
+extern empire_city_type_changes_t empire_city_fall_to_enemy;
 
 struct empire_city {
     enum {
@@ -65,6 +81,7 @@ struct empire_city {
     void remove_trader(int figure_id);
     bool can_trade() const;
     void set_trade_enabled(bool enabled);
+    bool change_type(const empire_city_type_changes_t& changes);
     void clear_trade_resources();
 
     bool shows_as_trade_city_on_map() const;

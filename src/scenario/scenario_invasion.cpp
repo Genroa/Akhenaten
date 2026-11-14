@@ -430,7 +430,17 @@ bool scenario_invasion_exists_upcoming() {
     return false;
 }
 
-bool __construction_no_troops_for_defense() {
+int city_own_warships() {
+    int warships = 0;
+    figure_valid_do([&](figure& f) {
+        if (f.type == FIGURE_WARSHIP && !f.is_enemy()) {
+            warships++;
+        }
+    });
+    return warships;
+}
+
+bool scenario_invasion_city_undefended() {
     bool running = false;
     for (const auto &b : g_invasions.binds) {
         if (b.in_use) {
@@ -444,23 +454,8 @@ bool __construction_no_troops_for_defense() {
     if (!running || formation_get_num_forts() > 0) {
         return false;
     }
-    int warships = 0;
-    figure_valid_do([&] (figure &f) {
-        if (f.type == FIGURE_WARSHIP && !f.is_enemy()) {
-            warships++;
-        }
-    });
-    return warships == 0;
+    return city_own_warships() == 0;
 }
-ANK_FUNCTION(__construction_no_troops_for_defense)
-
-std::optional<bvariant> __invasion_warning_get_property(int index, pcstr property) {
-    if (index < 0 || index >= (int)g_invasions.warnings.size()) {
-        return {};
-    }
-    return archive_helper::get(g_invasions.warnings[index], property, true);
-}
-ANK_FUNCTION_2(__invasion_warning_get_property)
 
 int scenario_invasion_count() {
     int num_invasions = 0;

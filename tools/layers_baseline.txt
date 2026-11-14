@@ -71,7 +71,6 @@ building/building_farm.cpp -> graphics/view/view.h
 building/building_farm.cpp -> sound/sound_building.h
 building/building_farm.cpp -> widget/city/building_ghost.h
 building/building_farm.cpp -> window/building/common.h
-building/building_ferry.cpp -> graphics/animkeys.h
 building/building_ferry.cpp -> graphics/image.h
 building/building_ferry.cpp -> graphics/view/view.h
 building/building_fishing_wharf.cpp -> dev/debug.h
@@ -145,8 +144,6 @@ building/building_plaza.cpp -> sound/sound_building.h
 building/building_plaza.cpp -> window/building/common.h
 building/building_plaza.cpp -> window/building/figures.h
 building/building_plaza.cpp -> window/window_figure_info.h
-building/building_police_station.cpp -> graphics/elements/ui.h
-building/building_police_station.cpp -> window/building/common.h
 building/building_road.cpp -> graphics/graphics.h
 building/building_road.cpp -> graphics/image.h
 building/building_roadblock.cpp -> graphics/elements/ui.h
@@ -458,8 +455,6 @@ figuretype/figure_caravan_donkey.cpp -> window/window_figure_info.h
 figuretype/figure_cartpusher.cpp -> graphics/elements/ui.h
 figuretype/figure_cartpusher.cpp -> graphics/image.h
 figuretype/figure_cartpusher.cpp -> window/building/figures.h
-figuretype/figure_constable.cpp -> graphics/graphics.h
-figuretype/figure_constable.cpp -> graphics/image.h
 figuretype/figure_dancer.cpp -> sound/sound.h
 figuretype/figure_deliveryboy.cpp -> graphics/graphics.h
 figuretype/figure_deliveryboy.cpp -> graphics/image.h
@@ -509,7 +504,6 @@ figuretype/figure_fishing_boat.cpp -> window/building/figures.h
 figuretype/figure_fishing_point.cpp -> dev/debug.h
 figuretype/figure_flotsam.cpp -> graphics/animkeys.h
 figuretype/figure_frog.cpp -> dev/debug.h
-figuretype/figure_frog.cpp -> sound/sound.h
 figuretype/figure_homeless.cpp -> dev/debug.h
 figuretype/figure_homeless.cpp -> graphics/view/lookup.h
 figuretype/figure_hunter.cpp -> graphics/animkeys.h
@@ -524,7 +518,6 @@ figuretype/figure_kingdome_trader.cpp -> graphics/image_desc.h
 figuretype/figure_kingdome_trader.cpp -> graphics/image_groups.h
 figuretype/figure_kingdome_trader.cpp -> widget/debug_console.h
 figuretype/figure_locust.cpp -> graphics/image.h
-figuretype/figure_locust.cpp -> sound/sound.h
 figuretype/figure_lumberjack.cpp -> graphics/graphics.h
 figuretype/figure_lumberjack.cpp -> graphics/image.h
 figuretype/figure_lumberjack.cpp -> graphics/image_groups.h
@@ -543,15 +536,11 @@ figuretype/figure_native.cpp -> graphics/animkeys.h
 figuretype/figure_native_trader.cpp -> graphics/image.h
 figuretype/figure_native_trader.cpp -> graphics/image_groups.h
 figuretype/figure_native_trader.cpp -> widget/debug_console.h
-figuretype/figure_priest.cpp -> graphics/animation.h
-figuretype/figure_priest.cpp -> graphics/image.h
-figuretype/figure_priest.cpp -> graphics/image_groups.h
 figuretype/figure_reed_gatherer.cpp -> graphics/image_groups.h
 figuretype/figure_shipwreck.cpp -> graphics/animkeys.h
 figuretype/figure_shipwreck.cpp -> graphics/elements/lang_text.h
 figuretype/figure_shipwreck.cpp -> graphics/elements/ui.h
 figuretype/figure_shipwreck.cpp -> window/building/figures.h
-figuretype/figure_sled.cpp -> graphics/graphics.h
 figuretype/figure_soldier.cpp -> graphics/image.h
 figuretype/figure_soldier.cpp -> graphics/image_groups.h
 figuretype/figure_soldier.cpp -> sound/sound.h

@@ -9,6 +9,7 @@
 #include "core/object_property.h"
 #include "core/custom_span.hpp"
 #include "city/city_labor.h"
+#include "core/calc.h"
 #include "figuretype/figure_noble.h"
 #include "game/resource.h"
 #include "graphics/image.h"
@@ -1249,17 +1250,6 @@ void building_house::on_post_load() {
             d.image_key = it->first;
         }
     }
-}
-
-void building_house::on_place_checks() {
-    if (type() != BUILDING_HOUSE_VACANT_LOT) {
-        return;
-    }
-
-    construction_warnings warnings;
-    const int city_population = g_city.population.current;
-    const bool need_more_food = (city_population >= 200 && !g_scenario.kingdom_supplies_grain && g_city.resource.food_percentage_produced() <= 95);
-    warnings.add_if(need_more_food, "#people_eat_more_than_produce");
 }
 
 e_house_progress building_house::check_evolve_status(house_demands *demands) {

@@ -304,6 +304,32 @@ bool laborer_lamps_hauler_to(building_id tomb_id, figure_id self) {
     return false;
 }
 
+int laborer_clay_haulers_to(building_id mastaba_id, figure_id self) {
+    int count = 0;
+    for (figure* f : map_figures()) {
+        if (!f || !f->is_alive() || f->type != FIGURE_LABORER || f->id == self) {
+            continue;
+        }
+        if (f->collecting_item_id == RESOURCE_CLAY && f->destination_building_id == mastaba_id) {
+            ++count;
+        }
+    }
+    return count;
+}
+
+bool laborer_mastaba_wants_clay(building* b, figure_id self, int load) {
+    building* head = b ? (b->main() ? b->main() : b) : nullptr;
+    auto* mastaba = head ? head->dcast_mastaba() : nullptr;
+    if (!mastaba || mastaba->phase() < MASTABA_PHASE_BRICKS) {
+        return false;
+    }
+    if (mastaba->clay_to_haul(laborer_clay_haulers_to(head->id, self), load) <= 0) {
+        return false;
+    }
+    tile2i yard_tile;
+    return laborer_yard_for_getting(head, RESOURCE_CLAY, load, yard_tile) != 0;
+}
+
 figure_id laborer_cleopatra_mason_waiting(building *head) {
     auto *mon = head->dcast_monument();
     if (!mon) {
@@ -322,6 +348,10 @@ figure_id laborer_cleopatra_mason_waiting(building *head) {
 }
 
 } // namespace
+
+bool figure_worker::farm_work_waiting() {
+    return laborer_farm_work_waiting();
+}
 
 e_resource figure_worker::block_material_for(building *monument, figure_id mason_fid) const {
     building *head = monument ? (monument->main() ? monument->main() : monument) : nullptr;
@@ -391,6 +421,15 @@ void figure_worker::enter_idle_pool() {
     base.animctx.frame = 0;
     base.set_flag(e_figure_flag_invisible, true);
     advance_action(ACTION_8_LABORER_IDLE);
+}
+
+void figure_worker::drop_load() {
+    auto& rd = runtime_data();
+    figure* mason = rd.mason_fid ? figure_get(rd.mason_fid) : nullptr;
+    if (mason && mason->leading_figure_id == id()) {
+        mason->leading_figure_id = 0;
+    }
+    enter_idle_pool();
 }
 
 void figure_worker::finish_block_delivery() {
@@ -474,6 +513,70 @@ bool figure_worker::assign_lamp_delivery(building *tomb) {
     return true;
 }
 
+// Lamps and remake clay go to the site itself; every other load goes to a mason partner.
+bool figure_worker::hauls_to_site() const {
+    return base.collecting_item_id == RESOURCE_LAMPS || base.collecting_item_id == RESOURCE_CLAY;
+}
+
+bool figure_worker::assign_clay_delivery(building* mastaba) {
+    building* head = mastaba ? (mastaba->main() ? mastaba->main() : mastaba) : nullptr;
+    if (!head || !head->dcast_mastaba()) {
+        return false;
+    }
+
+    const int load = (int)current_params().load;
+    tile2i yard_tile;
+    building_id yard_id = laborer_yard_for_getting(head, RESOURCE_CLAY, load, yard_tile);
+    if (!yard_id || !yard_tile.valid()) {
+        return false;
+    }
+
+    auto& rd = runtime_data();
+    rd.mason_fid = 0;
+    rd.delivering_block = 1;
+    rd.walk_mode = PYRAMID_WALK_NONE;
+    rd.yard_bid = yard_id;
+    set_destination(head);
+    base.wait_ticks = 0;
+    base.resource_amount_full = 0;
+    base.collecting_item_id = (uint8_t)RESOURCE_CLAY;
+    base.resource_id = RESOURCE_CLAY;
+    base.leading_figure_id = 0;
+    base.destination_tile = yard_tile;
+    base.set_flag(e_figure_flag_invisible, false);
+    advance_action(ACTION_15_LABORER_TO_STORAGE_YARD);
+    return true;
+}
+
+void figure_worker::at_storage_yard_clay() {
+    auto& rd = runtime_data();
+    building* yb = rd.yard_bid ? building_get(rd.yard_bid) : nullptr;
+    auto* yard = storage_yard_cast(yb ? yb->main() : nullptr);
+    const int load = (int)current_params().load;
+    if (!laborer_take_yard_load(yard, RESOURCE_CLAY, load, base)) {
+        enter_idle_pool();
+        return;
+    }
+
+    building* head = destination() ? destination()->main() : nullptr;
+    auto* mastaba = head ? head->dcast_mastaba() : nullptr;
+    const tile2i road = head ? laborer_monument_road_tile(head) : tile2i::invalid;
+    if (!mastaba || mastaba->is_finished() || !road.valid()) {
+        yard->add_resource(RESOURCE_CLAY, load, true);
+        enter_idle_pool();
+        return;
+    }
+
+    base.destination_tile = road;
+    base.leading_figure_id = 0;
+    base.wait_ticks = 0;
+    base.roam_length = 0;
+    base.animctx.frame = 0;
+    route_remove();
+    pyramid_figure_spawn_sled_train(id());
+    advance_action(ACTION_37_LABORER_SLED_TO_MASTABA);
+}
+
 void figure_worker::at_storage_yard_lamps() {
     auto &rd = runtime_data();
     building *yb = rd.yard_bid ? building_get(rd.yard_bid) : nullptr;
@@ -499,7 +602,7 @@ void figure_worker::at_storage_yard_lamps() {
     base.roam_length = 0;
     base.animctx.frame = 0;
     route_remove();
-    pyramid_figure_spawn_single_sled(id(), tomb);
+    pyramid_figure_spawn_single_sled(id());
     advance_action(ACTION_36_LABORER_SLED_TO_TOMB);
 }
 
@@ -698,7 +801,7 @@ void figure_worker::find_work() {
                     continue;
                 }
                 int distance = calc_maximum_distance(tile(), b.tile);
-                if (distance > (int)p.farm_search_distance) {
+                if (distance > (int)p.farm_search_distance || g_city.plagues.locusts_countdown > 0) {
                     continue;
                 }
                 distance += farm->runtime_data().labor_days_left;
@@ -768,7 +871,7 @@ void figure_worker::find_work() {
                 has_work = mason_id != 0;
             } else {
                 mason_id = g_monument_pyramid_figure.find_mason_waiting_for_block(&b, 0);
-                has_work = mason_id != 0;
+                has_work = mason_id != 0 || laborer_mastaba_wants_clay(&b, id(), (int)p.load);
             }
             if (!has_work) {
                 continue;
@@ -798,6 +901,13 @@ void figure_worker::find_work() {
 
     if (best->dcast_royal_tomb()) {
         if (!assign_lamp_delivery(best)) {
+            poof();
+        }
+        return;
+    }
+
+    if (!best_mason && laborer_mastaba_wants_clay(best, id(), (int)p.load)) {
+        if (!assign_clay_delivery(best)) {
             poof();
         }
         return;
@@ -1084,7 +1194,9 @@ void figure_worker::figure_action() {
     case ACTION_10_LABORER_TO_FARM:
         if (do_gotobuilding(destination(), stop_at_road, terrain_usage, ACTION_10_LABORER_TO_FARM, ACTION_14_LABORER_ROUTE_LOST)) {
             worker_handoff_path_to_camp(base);
-            if (b_dest->is_floodplain_farm()) {
+            if (b_dest->is_floodplain_farm() && g_city.plagues.locusts_countdown != 0) {
+                poof();
+            } else if (b_dest->is_floodplain_farm()) {
                 auto &d = b_dest->dcast_farm()->runtime_data();
                 if (game_features::gameplay_change_work_camp_distance_scaled_farm_workers.to_bool()) {
                     b_dest->num_workers = std::clamp<int>((1.f - bhome->tile.dist(b_dest->tile) / 20.f) * 12, 2, 10);
@@ -1192,9 +1304,13 @@ void figure_worker::figure_action() {
         sled_to_tomb_tick(b_dest);
         break;
 
+    case ACTION_37_LABORER_SLED_TO_MASTABA:
+        sled_to_monument_tick(b_dest);
+        break;
+
     case ACTION_15_LABORER_TO_STORAGE_YARD:
         base.set_flag(e_figure_flag_invisible, false);
-        if (base.collecting_item_id != RESOURCE_LAMPS && !laborer_partner_part(id(), rd.mason_fid)) {
+        if (!hauls_to_site() && !laborer_partner_part(id(), rd.mason_fid)) {
             poof();
             break;
         }
@@ -1208,6 +1324,15 @@ void figure_worker::figure_action() {
         base.set_flag(e_figure_flag_invisible, false);
         if (base.collecting_item_id == RESOURCE_LAMPS) {
             at_storage_yard_lamps();
+            break;
+        }
+        if (base.collecting_item_id == RESOURCE_CLAY) {
+            base.wait_ticks++;
+            if (base.wait_ticks <= (int)current_params().yard_wait_ticks) {
+                base.animctx.frame = 0;
+                break;
+            }
+            at_storage_yard_clay();
             break;
         }
         figure *mason = figure_get(rd.mason_fid);
@@ -1252,14 +1377,14 @@ void figure_worker::figure_action() {
                 break;
             }
             base.destination_tile = road;
-            pyramid_figure_spawn_sled_train(id(), site_head);
+            pyramid_figure_spawn_sled_train(id());
             base.wait_ticks = 0;
             base.roam_length = 0;
             advance_action(laborer_cleopatra_actions(site_head).sled);
         } else if (uses_ramp_climb(b_dest)) {
             tile2i entry = ramp_entry_tile(b_dest);
             base.destination_tile = entry.valid() ? entry : mason->tile;
-            pyramid_figure_spawn_sled_train(id(), b_dest);
+            pyramid_figure_spawn_sled_train(id());
             base.wait_ticks = 0;
             advance_action(ACTION_30_LABORER_SLED_AT_RAMP);
         } else {
@@ -1573,6 +1698,7 @@ static int __worker_block_material_for(int monument_bid, int mason_fid) {
 }
 ANK_FUNCTION_2(__worker_block_material_for)
 
+// OG laborer.c update_image / laborer_image_group.
 void figure_worker::update_animation() {
     figure_impl::update_animation();
 
@@ -1584,39 +1710,41 @@ void figure_worker::update_animation() {
         image_set_animation(animkeys().work);
         break;
 
+    case FIGURE_ACTION_149_CORPSE:
+        image_set_animation(animkeys().death);
+        break;
+
+    case ACTION_7_CARTPUSHER_WAIT_FOR_FERRY:
+        image_set_animation(
+          base.action_state_before_attack == ACTION_17_LABORER_TO_PYRAMID ? animkeys().pulling : animkeys().walk);
+        break;
+
+    case ACTION_17_LABORER_TO_PYRAMID:
+    case ACTION_30_LABORER_SLED_AT_RAMP:
+        image_set_animation(base.leading_figure_id ? animkeys().pulling : animkeys().walk);
+        break;
+
+    case ACTION_19_LABORER_TO_MASON:
+    case ACTION_20_LABORER_WALK_TO_MASON:
     case ACTION_23_LABORER_SLED_TO_SUN_TEMPLE:
     case ACTION_26_LABORER_SLED_TO_MAUSOLEUM:
     case ACTION_31_LABORER_SLED_TO_LIBRARY:
     case ACTION_34_LABORER_SLED_TO_CAESAREUM:
     case ACTION_35_LABORER_SLED_TO_LIGHTHOUSE:
     case ACTION_36_LABORER_SLED_TO_TOMB:
-    case ACTION_15_LABORER_TO_STORAGE_YARD:
-    case ACTION_16_LABORER_AT_STORAGE_YARD:
-    case ACTION_17_LABORER_TO_PYRAMID:
-    case ACTION_18_LABORER_CLIMB_RAMP:
-    case ACTION_19_LABORER_TO_MASON:
-    case ACTION_20_LABORER_WALK_TO_MASON:
-    case ACTION_29_LABORER_DELIVERED:
-    case ACTION_30_LABORER_SLED_AT_RAMP:
+    case ACTION_37_LABORER_SLED_TO_MASTABA:
         image_set_animation(animkeys().pulling);
         break;
 
-    case FIGURE_ACTION_149_CORPSE:
-        image_set_animation(animkeys().death);
-        break;
-
-    case ACTION_6_CARTPUSHER_ON_FERRY:
-    case ACTION_7_CARTPUSHER_WAIT_FOR_FERRY:
-    case ACTION_8_LABORER_IDLE:
-    case ACTION_13_LABORER_RETURNING:
-    case ACTION_9_LABORER_GOING_OUT:
-    case ACTION_10_LABORER_TO_FARM:
-    case ACTION_24_LABORER_TO_SUN_TEMPLE:
-    case ACTION_27_LABORER_TO_MAUSOLEUM:
-    case ACTION_32_LABORER_TO_LIBRARY:
+    default:
         image_set_animation(animkeys().walk);
         break;
     }
+}
+
+// OG building_info.c draw_walker_info: a laborer with a partner reads as a sled puller.
+pcstr figure_worker::info_type_name() const {
+    return base.leading_figure_id ? figure_static_params::get(FIGURE_SLED_PULLER).name : params().name;
 }
 
 void figure_worker::on_destroy() {

@@ -51,6 +51,24 @@ empire_city_images {
     foreign           : {path:"pharaoh_general/empire_bits_00066"}
 }
 
+// OG city_status_new_type: the type a city takes on a city-status event; a city of any other type is
+// left alone and no message is posted.
+// CITY_STATUS_CONQUERED: a foreign city conquered by Egypt becomes Egyptian.
+empire_city_conquest {
+    types [
+        { from: EMPIRE_CITY_FOREIGN_TRADING, to: EMPIRE_CITY_EGYPTIAN_TRADING }
+        { from: EMPIRE_CITY_FOREIGN, to: EMPIRE_CITY_EGYPTIAN }
+    ]
+}
+
+// CITY_STATUS_FELL_TO_ENEMY: an Egyptian city taken by the enemy becomes foreign.
+empire_city_fall_to_enemy {
+    types [
+        { from: EMPIRE_CITY_EGYPTIAN_TRADING, to: EMPIRE_CITY_FOREIGN_TRADING }
+        { from: EMPIRE_CITY_EGYPTIAN, to: EMPIRE_CITY_FOREIGN }
+    ]
+}
+
 // OG empire_trade_rules + trade_recommends.txt: how much the city keeps before it exports a surplus,
 // and the stock IMPORT_AS_NEEDED imports up to. Recomputed once a day.
 empire_trade_rules {
@@ -103,6 +121,16 @@ empire_trade_rules {
     ]
 }
 
+// OG empire_window.c: an invasion marker creeps one path point per anim_offset_divisor drawn frames while the
+// map animation counter runs from anim_offset_start to anim_counter_max; a click takes a marker nearer than
+// pick_distance pixels and nearer than any map object.
+empire_markers_rules {
+    anim_counter_max : 100
+    anim_offset_start : 50
+    anim_offset_divisor : 4
+    pick_distance : 30
+}
+
 empire_traders {
     ship_movement_delay [2, 5]
     land_movement_delay [1, 4]
@@ -113,10 +141,13 @@ empire {
     @has_distant_battle { get: __empire_has_distant_battle }
     @id { get: __empire_get_id }
     @is_expanded { get: __empire_is_expanded }
+    @marker_count { get: __empire_markers_count }
+    @selected_marker_kind { get: __empire_markers_selected_kind }
 
     set_id : __empire_set_id
     set_expanded : __empire_set_expanded
     expand : __empire_expand
+    update_markers : __empire_markers_update
 
     active_battle {
         __property_getter: function(property) { return __game_get_active_battle_property(property) }
@@ -160,6 +191,15 @@ empire.get_city_object = function(city_id) {
 
 empire.get_object = function(object_id) {
     return new EmpireObject(object_id)
+}
+
+empire.get_marker = function(index) {
+    return {
+        event_id: __empire_marker_get_property(index, "event_id")
+        kind: __empire_marker_get_property(index, "kind")
+        by_sea: __empire_marker_get_property(index, "by_sea")
+        pos: __empire_marker_get_property(index, "pos")
+    }
 }
 
 empire.get_trader = function(index) {

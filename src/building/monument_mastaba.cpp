@@ -664,6 +664,15 @@ bool building_mastaba::clay_stock_ready() const {
     return resource_pct(RESOURCE_CLAY) >= 100;
 }
 
+int building_mastaba::clay_to_haul(int loads_under_way, int load) const {
+    if (!clay_delivery_enabled() || !is_main() || is_finished()) {
+        return 0;
+    }
+    const int need = needs_resource(RESOURCE_CLAY);
+    const int on_site = need * resource_pct(RESOURCE_CLAY) / 100;
+    return std::max(0, need - on_site - loads_under_way * load);
+}
+
 int building_mastaba::needs_resource(e_resource resource) const {
     return needs_resource(resource, runtime_data().phase);
 }
@@ -673,13 +682,6 @@ int building_mastaba::needs_resource(e_resource resource, int phase) const {
         return 0;
     }
     return building_monument::needs_resource(resource, phase);
-}
-
-bool building_mastaba::accepts_yard_delivery(e_resource resource) const {
-    if (resource == RESOURCE_CLAY) {
-        return clay_delivery_enabled();
-    }
-    return true;
 }
 
 int building_mastaba::try_assign_bricklayer(figure_id fid) {

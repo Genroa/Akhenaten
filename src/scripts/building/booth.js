@@ -23,6 +23,7 @@ building_booth {
     fire_risk[4]
     damage_risk[2]
     flags {
+      no_map_edge_margin: true
         is_entertainment: true
         keeps_visitor_paths: true
     }
@@ -37,12 +38,6 @@ function building_booth_ghost_allow_tile(ev) {
 function building_booth_setup_preview_graphics(ev) {
     var size = building_booth.building_size
     city_planner.init_tiles(size, size)
-}
-
-[es=(building_booth, on_place_checks)]
-function building_booth_on_place_checks(ev) {
-    var has_juggler_school = city.count_active_buildings(BUILDING_JUGGLER_SCHOOL) > 0
-    city.warnings.show_if_not(has_juggler_school, "#build_juggling_school")
 }
 
 [es=(building_booth, update_day)]

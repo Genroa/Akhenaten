@@ -86,9 +86,12 @@ localization_en = [
   {key:"#TR_CONFIG_GRANARIES_GET_DOUBLE", text:"Double the capacity of cart pushers from getting granaries"}
   {key:"#TR_CONFIG_DOCK_DOUBLE_HAUL", text:"Double the haul amount of dockers (800 per trip)"}
   {key:"#TR_CONFIG_DOCK_SMART_ROUTING", text:"Smart dock routing: score pier by orders/goods, hop to a better free pier (not original Pharaoh)"}
+  {key:"#TR_CONFIG_SLED_PULLERS_FLEE", text:"Sled pullers drop the sled and flee to the map exit when enemies come near; the sled stays where it was left (not original Pharaoh)"}
   {key:"#TR_CONFIG_FOLLOWER_RUNAWAY", text:"Followers flee to the map exit when their leader dies (caravan donkeys, delivery boys; not original Pharaoh)"}
   {key:"#TR_CONFIG_ROBBER_REMAKE", text:"Mugger remake: steal on spawn, always head for the palace, ambient mansion theft (not original Pharaoh)"}
   {key:"#TR_CONFIG_TOMB_ROBBER_REMAKE", text:"Tomb-robber remake: monthly spawn, flee/arrest, fixed kingdom hit (not original Pharaoh)"}
+  {key:"#TR_CONFIG_POLICE_WEAPONS", text:"Police stations fetch weapons from storage yards, each constable takes one (not original Pharaoh)"}
+  {key:"#TR_CONFIG_WALKER_PHRASES_REMAKE", text:"Walker phrases remake: each walker picks its own lines, soldiers and enemies talk too (not original Pharaoh)"}
   {key:"#TR_CONFIG_PROTESTOR_HUNT_NOBLES", text:"Protestors hunt noble citizens and manor/estate houses (not original Pharaoh)"}
   {key:"#TR_CONFIG_FISHING_BOAT_REMAKE", text:"Fishing-boat remake: faster with staff, half load, sticky spots, soft lose-home (not original Pharaoh)"}
   {key:"#TR_CONFIG_BAZAAR_MULTI_BUYERS", text:"Bazaars can send two buyers at once (food + goods)"}
@@ -107,7 +110,7 @@ localization_en = [
   {key:"#TR_CONFIG_FORT_REFUND_CARRY_TROOPS", text:"Fort remake: demolishing a fort returns troops carried over from the previous mission (not original Pharaoh)"}
   {key:"#TR_CONFIG_STATUE_VARIANTS", text:"Statue remake: random starting look, separate rotate and variant keys, extra statue looks (not original Pharaoh)"}
   {key:"#TR_CONFIG_GUILD_STATUE_SERVICE", text:"Guild remake: idle guild workers tend statues (not original Pharaoh)"}
-  {key:"#TR_CONFIG_MASTABA_CLAY_DELIVERY", text:"Mastaba remake: storage yards deliver clay listed in brick phases (original only hauled bricks)"}
+  {key:"#TR_CONFIG_MASTABA_CLAY_DELIVERY", text:"Mastaba remake: laborers also haul the clay listed in brick phases on sled trains (original only hauled bricks)"}
   {key:"#TR_CONFIG_RECRUIT_NEAREST_FORT", text:"Recruiter remake: recruits go to the nearest fort instead of chariots first, then infantry, then archers (not original Pharaoh)"}
   {key:"#TR_CONFIG_TRADER_CAPACITY_1600", text:"Larger trader capacity (1600 per visit; not yearly empire limit)"}
   {key:"#TR_CONFIG_TRADER_PER_GOOD_1600", text:"New Era: traders buy/sell up to 1600 of each good per visit (not yearly limit; not total-bag only)"}
@@ -800,13 +803,18 @@ localization_en = [
   {key: "#building_removed_fort_archers", group:19, id:183}
   {key: "#building_removed_fort_charioteers", group:19, id:184}
   {key: "#building_removed_academies", group:19, id:185}
-  {key: "#mausoleum_needs_sandstone", group:19, id:186}
-  {key: "#build_brewery_or_import_beer", group:19, id:187}
-  {key: "#build_papyrus_maker_or_import", group:19, id:188}
-  {key: "#build_weaver_or_import_linen", group:19, id:189}
-  {key: "#tax_collector_robbed", group:19, id:190}
-  {key: "#courthouse_robbed", group:19, id:191}
-  {key: "#mansion_destroyed", group:19, id:192}
+  {key: "#building_removed_fort_infantry_weapons", group:19, id:186}
+  {key: "#building_removed_fort_charioteers_chariots", group:19, id:187}
+  {key: "#mausoleum_needs_sandstone", group:19, id:188}
+  {key: "#build_brewery_or_import_beer", group:19, id:189}
+  {key: "#build_brewery_or_import_beer_route", group:19, id:190}
+  {key: "#build_papyrus_maker_or_import", group:19, id:191}
+  {key: "#build_papyrus_maker_or_import_route", group:19, id:192}
+  {key: "#build_weaver_or_import_linen", group:19, id:193}
+  {key: "#build_weaver_or_import_linen_route", group:19, id:194}
+  {key: "#tax_collector_robbed", group:19, id:195}
+  {key: "#courthouse_robbed", group:19, id:196}
+  {key: "#mansion_destroyed", group:19, id:197}
   {key: "#mansion_protected_by_police", text:"Protected by police"}
   {key: "#mansion_not_protected_theft", text:"Not protected - thieves may steal savings"}
   {key: "#palace_destroyed", group:19, id:198}
@@ -818,6 +826,8 @@ localization_en = [
   {key: "#max_docks_reached", group:19, id:204}
   {key: "#shrines_near_road_required", group:19, id:205}
   {key: "#build_jugglers_school", group:19, id:206}
+  {key: "#venue_build_conservatory", group:19, id:207}
+  {key: "#venue_build_dance_school", group:19, id:208}
   {key: "#company_cannot_reach_destination", group:19, id:209}
   {key: "#game_saved", group:19, id:210}
   {key: "#must_be_on_clear_land", group:19, id:211}

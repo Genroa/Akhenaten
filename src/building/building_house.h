@@ -105,7 +105,6 @@ public:
     //virtual void on_place(int orientation, int variant) override;
     virtual void on_destroy() override;
     virtual void on_post_load() override;
-    virtual void on_place_checks() override;
     virtual e_sound_channel_city sound_channel() const override { return SOUND_CHANNEL_CITY_STATUE; }
     virtual void on_undo() override;
     virtual void update_day() override;
@@ -170,7 +169,8 @@ ANK_CONFIG_PROPERTY(building_house::runtime_data_t, population, tax_coverage, ta
   water_supply, bazaar_access, education, school, library, academy, magistrate, num_gods, shrine_access, dentist,
   apothecary, health, mortuary, physician, booth_juggler, bandstand_juggler, senet_player, zookeeper, criminal_active,
   no_space_to_expand, fancy_bazaar_access, worst_desirability_building_id, frog_infest_days, evolve_text,
-  unreachable_ticks, days_without_food, num_foods, hsize, tax_income)
+  unreachable_ticks, days_without_food, num_foods, hsize, tax_income, temple_osiris, temple_ra, temple_ptah,
+  temple_seth, temple_bast)
 
 // --- Individual housing tiers -------------------------------------------------
 // some info shared with vacant lot, so this is unique twice-config class

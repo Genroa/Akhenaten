@@ -1117,19 +1117,6 @@ void building_mausoleum::on_place_update_tiles(int /*orientation*/, int variant)
     refresh_part_images();
 }
 
-void building_mausoleum::on_place_checks() {
-    construction_warnings warnings;
-    const vec2i ext = box_extent(base.orientation);
-    int min_value = 12;
-    int min_go = origin().grid_offset();
-    const bool has_road = map_road_find_minimum_tile_xy(origin(), ext.x, ext.y, &min_value, &min_go) && min_value < 12;
-    warnings.add_if(!has_road, "#needs_road_access");
-}
-
-void building_mausoleum::on_destroy() {
-    building_monument_remove_all_deliveries(id());
-}
-
 void building_mausoleum::update_day() {
     building_impl::update_day();
     if (!is_main() || is_finished()) {
